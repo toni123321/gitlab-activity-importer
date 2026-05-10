@@ -144,9 +144,12 @@ func TestGetUsersProjectsIds(t *testing.T) {
 			defer os.Unsetenv("GITLAB_TOKEN")
 
 			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				expectedURL := fmt.Sprintf("/api/v4/users/%d/contributed_projects", tt.userId)
-				if r.URL.Path != expectedURL {
-					t.Errorf("Expected URL '%s', got '%s'", expectedURL, r.URL.Path)
+				// Handle both membership and contributed_projects endpoints
+				membershipURL := "/api/v4/projects"
+				contributedURL := fmt.Sprintf("/api/v4/users/%d/contributed_projects", tt.userId)
+
+				if r.URL.Path != membershipURL && r.URL.Path != contributedURL {
+					t.Errorf("Expected URL '%s' or '%s', got '%s'", membershipURL, contributedURL, r.URL.Path)
 				}
 				if r.Header.Get("PRIVATE-TOKEN") != "test-token" {
 					t.Errorf("Expected PRIVATE-TOKEN 'test-token', got '%s'", r.Header.Get("PRIVATE-TOKEN"))
