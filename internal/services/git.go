@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/furmanp/gitlab-activity-importer/internal"
 	"github.com/go-git/go-git/v5"
@@ -113,7 +114,8 @@ func CreateLocalCommit(repo *git.Repository, commits []internal.Commit) (int, er
 	totalCommits := 0
 	for _, commit := range commits {
 		if !existingCommitSet[commit.ID] {
-			newCommit, err := workTree.Commit(commit.ID, &git.CommitOptions{
+			commitMsg := fmt.Sprintf("%s\n\nOriginal GitLab commit: %s", commit.Message, commit.ID)
+			newCommit, err := workTree.Commit(commitMsg, &git.CommitOptions{
 				Author: &object.Signature{
 					Name:  os.Getenv("GH_USERNAME"),
 					Email: os.Getenv("COMMITER_EMAIL"),
@@ -161,7 +163,17 @@ func getAllExistingCommitSHAs(repo *git.Repository) (map[string]bool, error) {
 	defer iter.Close()
 
 	err = iter.ForEach(func(c *object.Commit) error {
-		existingCommits[c.Message] = true
+		// Extract original GitLab commit ID from message footer
+		msg := c.Message
+		if strings.Contains(msg, "Original GitLab commit: ") {
+			parts := strings.Split(msg, "Original GitLab commit: ")
+			if len(parts) == 2 {
+				gitlabID := strings.TrimSpace(parts[1])
+				if len(gitlabID) >= 40 {
+					existingCommits[gitlabID[:40]] = true
+				}
+			}
+		}
 		return nil
 	})
 	if err != nil {
